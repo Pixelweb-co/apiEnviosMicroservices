@@ -1,0 +1,85 @@
+version: '3'
+services:
+  accounts_service:
+    build:
+      context: ./accounts_api
+      dockerfile: Dockerfile
+    ports:
+      - '3001:3000'
+    depends_on:
+      - db_accounts
+    environment:
+      DB_HOST: db_accounts
+      DB_PORT: 27018
+      DB_NAME: auth_db
+      JWT_SECRET: mysecretkey
+  db_accounts:
+    image: mongo:latest
+    volumes:
+      - mongodb_accounts:/data/db
+    ports:
+      - '27018:27017'
+  accounts_database_admin:
+    image: mongo-express
+    ports:
+      - '8082:8081'
+    environment:
+      ME_CONFIG_MONGODB_SERVER: db_accounts
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: secret
+  solicitudes_service:
+    build:
+      context: ./solicitudes_api
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    depends_on:
+      - db_solicitudes
+    environment:
+      DB_HOST: db_solicitudes
+      DB_PORT: 27019
+      DB_NAME: auth_db
+      JWT_SECRET: mysecretkey
+  db_solicitudes:
+    image: mongo:latest
+    volumes:
+      - mongodb_solicitudes:/data/db
+    ports:
+      - '27019:27017'
+  solicitudes_database_admin:
+    image: mongo-express
+    ports:
+      - '8083:8081'
+    environment:
+      ME_CONFIG_MONGODB_SERVER: db_solicitudes
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: secret
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./gateway_api/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - accounts_service
+      - solicitudes_service
+  rabbitmq:
+    image: docker.io/bitnami/rabbitmq:3.11
+    ports:
+      - '4369:4369'
+      - '5551:5551'
+      - '5552:5552'
+      - '5672:5672'
+      - '25672:25672'
+      - '15672:15672'
+    environment:
+      - RABBITMQ_SECURE_PASSWORD=yes
+      - RABBITMQ_LOGS=-
+    volumes:
+      - 'rabbitmq_data:/bitnami/rabbitmq/mnesia'
+
+volumes:
+  mongodb_accounts:
+  mongodb_solicitudes:
+  rabbitmq_data:
+    driver: local
