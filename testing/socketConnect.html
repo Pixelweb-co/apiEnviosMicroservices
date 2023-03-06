@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Cliente Socket.io</title>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+  </head>
+  <body>
+    <h1>Cliente Socket.io</h1>
+    <ul id="solicitudes-pendientes"></ul>
+
+    <script>const 
+    
+    socket = io('http://localhost/socket');  
+    
+      console.log("socket ",socket)
+      socket.on('connect', () => {
+        console.log('Conectado al servidor Socket.io');
+        socket.emit('solicitarSolicitudesPendientes');
+      });
+
+      socket.on('solicitudesPendientes', (solicitudes) => {
+        console.log(`Solicitudes pendientes recibidas: ${JSON.stringify(solicitudes)}`);
+
+        const listaSolicitudes = document.getElementById('solicitudes-pendientes');
+
+        solicitudes.forEach((solicitud) => {
+          const item = document.createElement('li');
+          item.textContent = JSON.stringify(solicitud);
+          listaSolicitudes.appendChild(item);
+        });
+      });
+
+
+        socket.on("mensajeDesdeServidor",(mensaje)=>{
+
+            alert(mensaje.mensaje)
+        })
+
+
+      socket.on('solicitudProcesada', (solicitud) => {
+        console.log(`Solicitud procesada: ${JSON.stringify(solicitud)}`);
+
+        const listaSolicitudes = document.getElementById('solicitudes-pendientes');
+
+        Array.from(listaSolicitudes.children).forEach((item) => {
+          if (item.textContent === JSON.stringify(solicitud)) {
+            item.remove();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

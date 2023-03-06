@@ -9,7 +9,9 @@
   "author": "Pixelweb",
   "license": "MIT",
   "dependencies": {
+    "amqplib": "^0.10.3",
     "express": "^4.18.2",
-    "mongoose": "^7.0.0"
+    "mongoose": "^7.0.0",
+    "util": "^0.12.5"
   }
 }

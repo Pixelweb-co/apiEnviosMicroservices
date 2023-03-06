@@ -1,85 +1,148 @@
 version: '3'
 services:
+  #account services
   accounts_service:
     build:
       context: ./accounts_api
       dockerfile: Dockerfile
+    image: accounts_service:latest
     ports:
       - '3001:3000'
-    depends_on:
-      - db_accounts
     environment:
       DB_HOST: db_accounts
-      DB_PORT: 27018
+      DB_PORT: 27017
       DB_NAME: auth_db
       JWT_SECRET: mysecretkey
+    networks:
+      - red_gateway
+      - red_micros
+      - red_data_layer
+  
+  
+  #account services database
   db_accounts:
     image: mongo:latest
     volumes:
       - mongodb_accounts:/data/db
     ports:
       - '27018:27017'
-  accounts_database_admin:
-    image: mongo-express
-    ports:
-      - '8082:8081'
-    environment:
-      ME_CONFIG_MONGODB_SERVER: db_accounts
-      ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: secret
+    networks:
+      - red_data_layer
+  
+  
+  #solicitudes services
   solicitudes_service:
     build:
       context: ./solicitudes_api
       dockerfile: Dockerfile
+    image: solicitudes_service:latest
     ports:
       - '3000:3000'
-    depends_on:
-      - db_solicitudes
+    networks:
+      - red_data_layer
+      - red_micros
+      - red_gateway
     environment:
       DB_HOST: db_solicitudes
-      DB_PORT: 27019
+      DB_PORT: 27017
       DB_NAME: auth_db
       JWT_SECRET: mysecretkey
+    
+    
+  
+  
+  #solicitud services db
   db_solicitudes:
     image: mongo:latest
     volumes:
       - mongodb_solicitudes:/data/db
     ports:
-      - '27019:27017'
-  solicitudes_database_admin:
+      - '27017:27017'
+    networks:
+      - red_data_layer
+    restart: on-failure  
+  
+  # db admin
+  database_admin:
     image: mongo-express
     ports:
-      - '8083:8081'
+      - '8081:8081'
     environment:
       ME_CONFIG_MONGODB_SERVER: db_solicitudes
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: secret
+    networks:
+      - red_data_layer
+
+ #puerta de enlace       
   nginx:
     image: nginx
     ports:
       - "80:80"
     volumes:
       - ./gateway_api/nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - accounts_service
-      - solicitudes_service
+    networks:
+      - red_gateway
+    
+  
+  #message brokuer rabbitmq
   rabbitmq:
-    image: docker.io/bitnami/rabbitmq:3.11
+    image: rabbitmq:3-management
     ports:
-      - '4369:4369'
-      - '5551:5551'
-      - '5552:5552'
-      - '5672:5672'
-      - '25672:25672'
-      - '15672:15672'
-    environment:
-      - RABBITMQ_SECURE_PASSWORD=yes
-      - RABBITMQ_LOGS=-
+      - "5672:5672"
+      - "5673:5673"
+      - "5674:5674"
+      - "15672:15672"
     volumes:
-      - 'rabbitmq_data:/bitnami/rabbitmq/mnesia'
+      - ./rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - red_micros
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:15672"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+  #socket services 
+  socket_service:
+    image: socket_service:latest
+    build:
+      context: ./socket_service
+      dockerfile: Dockerfile
+    ports:
+      - '3004:3004'
+    networks:
+      - red_micros
+      - red_gateway
+    
+  
+  # #broker message monitor cluster
+  # cluster_monitor:
+  #   build:
+  #     context: ./cluster_service_monitor
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - '3005:3005'
+  #   networks:
+  #     - red_micros
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "nc -z rabbitmq 5672 || exit 1"]
+  #     timeout: 30s
+  #     retries: 3
 
+
+#volumenes persistentes
 volumes:
   mongodb_accounts:
   mongodb_solicitudes:
   rabbitmq_data:
     driver: local
+
+
+#redes
+networks:
+  red_micros:
+  red_gateway:
+  red_data_layer:
