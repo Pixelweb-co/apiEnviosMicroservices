@@ -35,7 +35,7 @@ const send_rabbit_accounts = async ()=>{
 }
 
 
-//enviar solicitudes pendientes a estado de cola
+//enviar cola
 send_rabbit_accounts()
 
 

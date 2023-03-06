@@ -1,9 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const amqp = require('amqplib');
+const RabbitMQConnection = require('./services/rabbitMq');
+//const SolicitudContorller = require('./controllers/solicitudController')
 const Solicitud = require('./models/solicitudModel')
-
-
 
 const solicitudesRoutes = require('./routes/solicitudes.routes');
 
@@ -20,11 +20,13 @@ mongoose.connect('mongodb://'+process.env.DB_HOST+':27017/solicitudes_api', {
 });
 
 
-const send_rabbit_requisitions = async ()=>{
+const send_rabbit_requisitions = async (connection)=>{
 
   try {
     // Conectarse a RabbitMQ
-    const connection = await amqp.connect('amqp://admin:admin@rabbitmq:5672');
+
+    const connection = await RabbitMQConnection.connect();
+
     const channel = await connection.createChannel();
     const queueName = 'solicitudes';
   
@@ -32,16 +34,38 @@ const send_rabbit_requisitions = async ()=>{
       await channel.assertQueue(queueName, { durable: true });
       console.log(`La cola ${queueName} se ha creado correctamente`);
     
-    // Cargar solicitudes pendientes de MongoDB
-
-    const solicitudes = await Solicitud.find({status:"PENDING"});
-  
     // Enviar solicitudes a RabbitMQ
-    solicitudes.forEach((solicitud) => {
-      channel.sendToQueue(queueName, Buffer.from(JSON.stringify(solicitud)));
-    });
+    // solicitudes.forEach((solicitud) => {
+    //   channel.sendToQueue(queueName, Buffer.from(JSON.stringify(solicitud)));
+    // });
   
-    console.log(`Se han enviado ${solicitudes.length} solicitudes pendientes a la cola "${queueName}"`);
+    //console.log(`Se han enviado ${solicitudes.length} solicitudes pendientes a la cola "${queueName}"`);
+
+    console.log('Esperando solicitudes en el servicio...');
+
+    channel.consume(queueName, async (message) => {
+    const solicitudFrom = JSON.parse(message.content.toString());
+
+    console.log(`Solicitud recibida desde el socker: ${JSON.stringify(solicitudFrom)}`);
+
+    // Procesar la solicitud aquí
+    if(solicitudFrom.cmd=='NEW'){
+
+      var pendingSolicitud = solicitudFrom.solicitud
+
+      pendingSolicitud.status="PENDING"
+
+      const solicitud = new Solicitud(pendingSolicitud);
+
+      var newSolicitud = await solicitud.save();
+
+      channel.ack(message); // Eliminar la solicitud de la cola
+      console.log(`Solicitud creada en servicio : ${JSON.stringify(newSolicitud)}`);
+      
+      channel.sendToQueue(queueName, Buffer.from(JSON.stringify({service:"solicitud",cmd:"SAVED",solicitud:newSolicitud})));
+    }
+
+  })
   
   } catch (error) {
     console.error(error);
@@ -63,6 +87,8 @@ app.use(express.json());
 
 // Configurar las rutas
 app.use('/solicitudes', solicitudesRoutes);
+
+
 
 // Iniciar la aplicación
 const PORT = 3000;

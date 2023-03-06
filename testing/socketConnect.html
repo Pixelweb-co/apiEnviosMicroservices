@@ -10,13 +10,21 @@
 
     <script>const 
     
-    socket = io('http://localhost/socket');  
+    socket = io('http://localhost/socket',{extraHeaders: {
+    'Origin': 'http://localhost'
+  }});  
     
       console.log("socket ",socket)
       socket.on('connect', () => {
-        console.log('Conectado al servidor Socket.io');
-        socket.emit('solicitarSolicitudesPendientes');
+        console.log('Conectado al servidor Socket.io y enviando solicitud');
+        socket.emit('nueva_solicitud',{service:'solicitud','cmd':'NEW',solicitud:{fecha:new Date(),status:'NEW'}});
       });
+
+      socket.on('solicitudProcesada',(data)=>{
+
+       console.log("Guardada ok ",data)
+
+      })
 
       socket.on('solicitudesPendientes', (solicitudes) => {
         console.log(`Solicitudes pendientes recibidas: ${JSON.stringify(solicitudes)}`);

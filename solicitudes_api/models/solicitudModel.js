@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 
-var Solicitud = mongoose.model("Solicitud", {
+var Solicitud = mongoose.model("Solicitude", {
   id: Number,
   id_client: String,
   client_data: Object,
