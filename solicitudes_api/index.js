@@ -4,29 +4,6 @@ const amqp = require('amqplib');
 const Solicitud = require('./models/solicitudModel')
 
 
-const send_rabbit_requisitions = async ()=>{
-
-  try {
-    // Conectarse a RabbitMQ
-    const connection = await amqp.connect('amqp://admin:admin@rabbitmq:5672');
-    const channel = await connection.createChannel();
-    const queueName = 'solicitudes';
-  
-    // Cargar solicitudes pendientes de MongoDB
-    const solicitudes = await Solicitud.find({status:"PENDING"});
-  
-    // Enviar solicitudes a RabbitMQ
-    solicitudes.forEach((solicitud) => {
-      channel.sendToQueue(queueName, Buffer.from(JSON.stringify(solicitud)));
-    });
-  
-    console.log(`Se han enviado ${solicitudes.length} solicitudes pendientes a la cola "${queueName}"`);
-  
-  } catch (error) {
-    console.error(error);
-  }
-
-}
 
 const solicitudesRoutes = require('./routes/solicitudes.routes');
 
@@ -42,6 +19,35 @@ mongoose.connect('mongodb://'+process.env.DB_HOST+':27017/solicitudes_api', {
   console.error('Error al conectar a la base de datos', err);
 });
 
+
+const send_rabbit_requisitions = async ()=>{
+
+  try {
+    // Conectarse a RabbitMQ
+    const connection = await amqp.connect('amqp://admin:admin@rabbitmq:5672');
+    const channel = await connection.createChannel();
+    const queueName = 'solicitudes';
+  
+
+      await channel.assertQueue(queueName, { durable: true });
+      console.log(`La cola ${queueName} se ha creado correctamente`);
+    
+    // Cargar solicitudes pendientes de MongoDB
+
+    const solicitudes = await Solicitud.find({status:"PENDING"});
+  
+    // Enviar solicitudes a RabbitMQ
+    solicitudes.forEach((solicitud) => {
+      channel.sendToQueue(queueName, Buffer.from(JSON.stringify(solicitud)));
+    });
+  
+    console.log(`Se han enviado ${solicitudes.length} solicitudes pendientes a la cola "${queueName}"`);
+  
+  } catch (error) {
+    console.error(error);
+  }
+
+}
 
 
 //enviar solicitudes pendientes a estado de cola

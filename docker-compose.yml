@@ -17,7 +17,7 @@ services:
       - red_gateway
       - red_micros
       - red_data_layer
-  
+    restart: on-failure
   
   #account services database
   db_accounts:
@@ -47,7 +47,7 @@ services:
       DB_PORT: 27017
       DB_NAME: auth_db
       JWT_SECRET: mysecretkey
-    
+    restart: on-failure    
     
   
   
@@ -83,6 +83,7 @@ services:
       - ./gateway_api/nginx.conf:/etc/nginx/nginx.conf
     networks:
       - red_gateway
+    restart: on-failure
     
   
   #message brokuer rabbitmq
@@ -116,6 +117,9 @@ services:
     networks:
       - red_micros
       - red_gateway
+    depends_on:
+      - rabbitmq
+    restart: on-failure 
     
   
   # #broker message monitor cluster

@@ -11,14 +11,14 @@ cmd="$@"
 
 while :
 do
-    nc -z $host $post
+    nc -z rabbitmq 5672
     if [ $? -eq 0 ]; then
-        echo "El puerto $PORT está abierto en $HOST"
-        exec $cmd
+        echo "Rabbitmq presente"
+        exec node index.js
         break
     else
-        echo "El puerto $PORT está cerrado en $HOST. Intentando de nuevo en 5 segundos..."
-        sleep 5
+        echo "El puerto $PORT está cerrado en $HOST. Intentando de nuevo en 1 segundos..."
+        sleep 1
     fi
 done
 
