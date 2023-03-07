@@ -1,0 +1,15 @@
+{
+  "name": "update_service",
+  "version": "1.0.0",
+  "description": "Update containers stack from github",
+  "main": "check_uptates.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Pixelweb",
+  "license": "ISC",
+  "dependencies": {
+    "@octokit/rest": "^19.0.7",
+    "node-docker-api": "^1.1.22"
+  }
+}

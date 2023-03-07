@@ -3,3 +3,6 @@
 /micro_service_template/node_modules
 /secket_service/node_modules
 /solicitudes_api/node_modules
+/ofertas_api/node_modules
+/update_service/node_modules
+/rabbitmq_data

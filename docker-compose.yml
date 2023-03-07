@@ -62,13 +62,47 @@ services:
       - red_data_layer
     restart: on-failure  
   
+
+#ofertas services
+  ofertas_service:
+    build:
+      context: ./ofertas_api
+      dockerfile: Dockerfile
+    image: ofertas_service:latest
+    ports:
+      - '3006:3000'
+    networks:
+      - red_data_layer
+      - red_micros
+      - red_gateway
+    environment:
+      DB_HOST: db_ofertas
+      DB_PORT: 27018
+      DB_NAME: auth_db
+      JWT_SECRET: mysecretkey
+    restart: on-failure    
+    
+  
+  
+  #ofertas services db
+  db_ofertas:
+    image: mongo:latest
+    volumes:
+      - mongodb_ofertas:/data/db
+    ports:
+      - '27019:27017'
+    networks:
+      - red_data_layer
+    restart: on-failure  
+
+
   # db admin
   database_admin:
     image: mongo-express
     ports:
       - '8081:8081'
     environment:
-      ME_CONFIG_MONGODB_SERVER: db_solicitudes
+      ME_CONFIG_MONGODB_SERVER: db_ofertas
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: secret
     networks:
@@ -141,6 +175,7 @@ services:
 volumes:
   mongodb_accounts:
   mongodb_solicitudes:
+  mongodb_ofertas:
   rabbitmq_data:
     driver: local
 

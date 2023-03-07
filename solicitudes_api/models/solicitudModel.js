@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
-
-var Solicitud = mongoose.model("Solicitude", {
+var solicitudM = mongoose.Schema({
   id: Number,
   id_client: String,
   client_data: Object,
@@ -16,5 +15,9 @@ var Solicitud = mongoose.model("Solicitude", {
   ratedClient:String,
   ratedDriver:String
 });
+
+
+var Solicitud = mongoose.model("Solicitude", solicitudM);
+
 
 module.exports = Solicitud;
