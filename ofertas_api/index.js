@@ -45,10 +45,6 @@ const send_rabbit_requisitions = async (connection) => {
     console.log("Esperando eventos en el servicio...");
 
     channel.consume(queueName, async (message) => {
-      if(!message.content){
-        return false
-      }
-      
       const ofertaFrom = JSON.parse(message.content.toString());
 
       console.log(
@@ -56,17 +52,18 @@ const send_rabbit_requisitions = async (connection) => {
       );
 
       if (ofertaFrom.cmd == "GETPENDINGS") {
-        console.log("consultando ofertas de solicitud: ",ofertaFrom.solicitud)
+        console.log("consultando ofertas de solicitud: ", ofertaFrom);
 
         const ofertas_pendientes = await Oferta.find({
-          solicitud: ofertaFrom.solicitud._id,
+          solicitud: ofertaFrom.solicitud,
           estado: "PENDING",
         });
 
         channel.ack(message); // Eliminar comando de la cola
         console.log(
           `Enviando ofertas pendientes de solicitud : ${JSON.stringify(
-            ofertas_pendientes   )}`
+            ofertas_pendientes
+          )}`
         );
         channel.sendToQueue(
           queueNameS,
@@ -75,10 +72,10 @@ const send_rabbit_requisitions = async (connection) => {
               service: "oferta",
               cmd: "HAVE_PENDINGS_SOLICITUD",
               ofertas: ofertas_pendientes,
-              solicitud:ofertaFrom.solicitud,
-              
+              solicitud: ofertaFrom.solicitud,
             })
-          ), {persistent:true}
+          ),
+          { persistent: true }
         );
       }
 
@@ -88,9 +85,13 @@ const send_rabbit_requisitions = async (connection) => {
 
         pendingoferta.estado = "PENDING";
 
-        const oferta = new Oferta(pendingoferta);
+        //const oferta = new Oferta(pendingoferta);
 
-        var newoferta = await oferta.save();
+        var newoferta = await Oferta.findOneAndUpdate({
+          contratista: pendingoferta.contratista,
+          solicitud: pendingoferta.solicitud,
+          estado: "PENDING",
+        },pendingoferta,{upsert: true });
 
         channel.ack(message); // Eliminar la oferta de la cola
         console.log(`oferta creada en servicio : ${JSON.stringify(newoferta)}`);

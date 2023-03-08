@@ -58,12 +58,12 @@ const send_rabbit_socket = async (socket) => {
             //   });
 
             const QUEUE_NAME = "ofertas";
-            const requestPayload = { service: "oferta", cmd: "GETPENDINGS", solicitud:solicitud.solicitud};
+            const requestPayloadO = { service: "oferta", cmd: "GETPENDINGS", solicitud:solicitud.oferta.solicitud};
         
             if (channel) {
               channel.sendToQueue(
                 QUEUE_NAME,
-                Buffer.from(JSON.stringify(requestPayload)),
+                Buffer.from(JSON.stringify(requestPayloadO)),
                 {persistent:true}
               );
         
@@ -80,7 +80,7 @@ const send_rabbit_socket = async (socket) => {
                       
           //enviar ofertas al cliente si esta conectado
             var pickedf = connectedUsers.find(
-              (x) => x.userName == solicitud.solicitud.id_client
+              (x) => x.userName == solicitud.ofertas[0].contratante
             );
   
             if (pickedf) {
