@@ -76,8 +76,7 @@ const send_rabbit_socket = async (socket) => {
           }
         }
 
-          if (solicitud.service == 'oferta' && solicitud.cmd == "HAVE_PENDINGS_SOLICITUD") {
-                      
+          if (solicitud.service == 'oferta' && solicitud.cmd == "HAVE_PENDINGS_SOLICITUD") {                     
           //enviar ofertas al cliente si esta conectado
             var pickedf = connectedUsers.find(
               (x) => x.userName == solicitud.ofertas[0].contratante
