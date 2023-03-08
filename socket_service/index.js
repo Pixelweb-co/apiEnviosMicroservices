@@ -81,6 +81,7 @@ const send_rabbit_socket = async (socket) => {
             var pickedf = connectedUsers.find(
               (x) => x.userName == solicitud.ofertas[0].contratante
             );
+            
   
             if (pickedf) {
               console.log("enviando ofertas pendientes a solicitud de cliente ",solicitud);
