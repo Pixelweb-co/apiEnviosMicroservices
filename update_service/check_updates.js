@@ -23,7 +23,6 @@ repo.getCommits(options)
   console.log("coomits ",commits);
 });
 
-  return
   const { data: latestCommit } = await octokit.repos.getLatestCommit({ owner: 'owner', repo: 'repo' });
   const { data: lastCommit } = await octokit.repos.getCommit({ owner: 'owner', repo: 'repo', ref: 'main' });
   if (latestCommit.sha !== lastCommit.sha) {
