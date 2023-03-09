@@ -5,12 +5,12 @@ const cors = require("cors");
 var methodOverride = require("method-override");
 var bodyParser = require("body-parser");
 const RabbitMQConnection = require("./services/rabbitMq");
-const {createAdapter} = require('@socket.io/redis-adapter');
+const redisAdapter = require('@socket.io/redis-adapter');
 const {createClient} = require('redis');
+const UIDGenerator = require('uid-generator');
 
+const uidgen = new UIDGenerator(); 
 
-const pubClient = createClient({ host: 'redis://redis_data:6379' });
-const subClient = pubClient.duplicate()
 
 const QUEUE_NAME_SOLICITUDES = "solicitudes";
 const QUEUE_NAME_OFERTAS = "ofertas";
@@ -26,6 +26,11 @@ let channel = null;
 
 // Lista de usuarios conectados
 let connectedUsers = [];
+
+
+
+
+var id_server_instance = uidgen.generateSync()
 
 const send_rabbit_socket = async (socket) => {
   try {
@@ -189,6 +194,11 @@ const send_rabbit_socket = async (socket) => {
           solicitud.service == "solicitud" &&
           solicitud.cmd == "HAVE_PENDING"
         ) {
+
+          console.log("------------------>>>>> pendiente solicitud usuario ",solicitud)
+
+          console.log("usuarios registrados ",connectedUsers)  
+
           var pickedf = connectedUsers.find(
             (x) => x.userName == solicitud.user._id
           );
@@ -285,7 +295,7 @@ const checkUsers = (socket) => {
 
   if (!pickedf) {
     if (socket.handshake.query.cliente) {
-      console.log("registrando nuevo cliente");
+      console.log("registrando nuevo cliente en server ",id_server_instance);
 
       connectedUsers.push({
         id: socket.id,
@@ -293,6 +303,7 @@ const checkUsers = (socket) => {
         nombres: socket.handshake.query.username,
         //push_id : userName.push_id ,
         tipo: socket.handshake.query.tipo,
+        server_instance:id_server_instance
       });
     } else {
       console.log("user indefinido ", socket.handshake.query);
@@ -300,8 +311,9 @@ const checkUsers = (socket) => {
   } else {
     connectedUsers.forEach(function (item) {
       if (item.userName == pickedf.userName && item.id !== socket.id) {
-        console.log("Socket de usuario actualizado "+socket.handshake.query.tipo);
+        console.log("Socket de usuario actualizado en server "+id_server_instance+' - '+socket.handshake.query.tipo);
         item.id = socket.id;
+        item.server_instance = id_server_instance
       }
     });
   }
@@ -321,8 +333,14 @@ const io = socketIO(server, {
 });
 
 
+const pubClient = createClient({ host: 'redis_data' ,port:6379,legacyMode: true  });
+console.log("pub client ",pubClient)
+const subClient = pubClient.duplicate()
 
-io.adapter(createAdapter({ pubClient: pubClient, subClient: subClient }));
+
+io.adapter(redisAdapter(pubClient, subClient, {
+  publishOnSpecificResponseChannel: true
+}));
 
 
 // Middlewares
@@ -601,5 +619,5 @@ if (rooms.hasOwnProperty("solicitud_" + solicitud._id)) {
 send_rabbit_socket();
 
 server.listen(3004, () => {
-  console.log("Servidor Socket.io escuchando en el puerto 3004");
+  console.log("Servidor Socket.io escuchando en el puerto 3004 - id= "+id_server_instance);
 });

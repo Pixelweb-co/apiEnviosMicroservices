@@ -65,18 +65,43 @@ const send_rabbit_requisitions = async (connection) => {
             ofertas_pendientes
           )}`
         );
+
+        if(ofertas_pendientes.length>0){
         channel.sendToQueue(
           queueNameS,
           Buffer.from(
             JSON.stringify({
               service: "oferta",
-              cmd: "HAVE_PENDINGS_SOLICITUD",
+              cmd: "HAVE_PENDINGS_SOLICITUD", 
               ofertas: ofertas_pendientes,
               solicitud: ofertaFrom.solicitud,
             })
           ),
           { persistent: true }
         );
+          }
+      }
+
+
+      if (ofertaFrom.cmd == "ACCEPT") {
+      
+        await Oferta.findOneAndUpdate(
+        {solicitud: pendingoferta.solicitud._id},
+        {...pendingoferta.oferta,estado:"CLOSE"},
+        {upsert: true,new:true }
+        )
+
+        await Oferta.findOneAndUpdate(
+          {_id: pendingoferta.oferta._id},
+          {estado:"ACCEPT"},
+          {upsert: true,new:true }
+          )
+
+        console.log("oferta aprobada") 
+          
+        channel.ack(message); // Eliminar la oferta de la cola
+
+
       }
 
       // Procesar la oferta aquí
@@ -91,22 +116,32 @@ const send_rabbit_requisitions = async (connection) => {
           contratista: pendingoferta.contratista,
           solicitud: pendingoferta.solicitud,
           estado: "PENDING",
-        },pendingoferta,{upsert: true });
+        },
+        pendingoferta,
+        {upsert: true,new:true },
+        ).then(ofertaDb => {
 
-        channel.ack(message); // Eliminar la oferta de la cola
-        console.log(`oferta creada en servicio : ${JSON.stringify(newoferta)}`);
+          console.log(`nueva oferta creada/actualizada en servicio:`,ofertaDb);
 
+                 
         channel.sendToQueue(
           queueNameS,
           Buffer.from(
             JSON.stringify({
               service: "oferta",
               cmd: "SAVED",
-              oferta: newoferta,
+              oferta: ofertaDb,
             })
           ),
           { persistent: true }
         );
+
+          channel.ack(message); // Eliminar la oferta de la cola
+
+        }).catch(error=>console.log("Error al enviar oferta a la db ",error))
+
+       
+
       }
     });
   } catch (error) {

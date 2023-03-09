@@ -102,7 +102,7 @@ services:
     ports:
       - '8081:8081'
     environment:
-      ME_CONFIG_MONGODB_SERVER: db_ofertas
+      ME_CONFIG_MONGODB_SERVER: db_solicitudes
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: secret
     networks:
@@ -125,8 +125,6 @@ services:
     image: rabbitmq:3-management
     ports:
       - "5672:5672"
-      - "5673:5673"
-      - "5674:5674"
       - "15672:15672"
     volumes:
       - ./rabbitmq_data:/var/lib/rabbitmq
@@ -153,9 +151,26 @@ services:
       - red_gateway
     depends_on:
       - rabbitmq
+      - redis_data
     restart: on-failure 
     
+  socket_service_replica1:
+    image: socket_service:latest
+    build:
+      context: ./socket_service
+      dockerfile: Dockerfile
+    ports:
+      - '3010:3004'
+    networks:
+      - red_micros
+      - red_gateway
+    depends_on:
+      - rabbitmq
+      - redis_data
+    restart: on-failure
+    
   
+
   # #broker message monitor cluster
   # cluster_monitor:
   #   build:
@@ -170,7 +185,13 @@ services:
   #     timeout: 30s
   #     retries: 3
 
-
+  redis_data:
+    image: redis
+    restart: always
+    networks:
+      - red_micros
+    ports:
+      - "6379:6379"
 #volumenes persistentes
 volumes:
   mongodb_accounts:

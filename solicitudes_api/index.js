@@ -181,6 +181,92 @@ const send_rabbit_requisitions = async (connection) => {
         }
       }
 
+      if(solicitudFrom.cmd === "FINISH"){
+        console.log("finalizando solicitud ",solicitudFrom.solicitud._id)
+        
+        Solicitud.findOneAndUpdate(
+          { _id: solicitudFrom.solicitud._id },
+          { status: "Cerrada" },
+          { upsert: true,new:true }).then((closeRequisition)=>{
+
+            channel.ack(message); // Eliminar la solicitud de la cola
+
+
+          }).catch((e)=>console.log("no se finalizo ",e));          
+
+      }
+
+      if(solicitudFrom.cmd=== "ACCEPT"){
+        await Solicitud.findOneAndUpdate(
+          { _id: solicitudFrom.oferta.solicitud,status:"PENDING" },
+          { status: "Abierta",id_driver:solicitudFrom.oferta.contratista,tarifa:{...solicitudFrom.solicitud.tarifa, valor:solicitudFrom.oferta.valor} },
+          { new:true }).
+          then((solicitudDb)=>{
+    
+            channel.sendToQueue(
+              queueSocketName,
+              Buffer.from(
+                JSON.stringify({
+                  service: "solicitud", 
+                  cmd: "ACCEPT_SOLICITUD",
+                  solicitud: solicitudDb,
+                  oferta:solicitudFrom.oferta
+                })
+              ),
+              { persistent: true }
+            );
+    
+          }).catch((error=>{
+            console.log("fallo en la notificacion de solicitud aprobada",error);
+          
+            
+        }))
+        
+        channel.ack(message); // Eliminar la solicitud de la cola
+          
+            
+      }
+
+      if (solicitudFrom.cmd == "CHANGE_TARIFA") {
+       
+    await Solicitud.findOneAndUpdate(
+      { _id: solicitudFrom.tarifa.solicitud,status:"PENDING" },
+      { tarifa: solicitudFrom.tarifa.tarifa },
+      { new:true }).
+      then((solicitudDb)=>{
+        if(!solicitudDb._id){
+          console.log("no se guardo la tarifa")
+          channel.ack(message); // Eliminar la solicitud de la cola
+       
+          return false
+        
+        }
+
+       
+        //notificar a todos los contratistas que ofertaron y enviar nueva solicitud
+
+        channel.ack(message); // Eliminar la solicitud de la cola
+        
+        channel.sendToQueue(
+          queueSocketName,
+          Buffer.from(
+            JSON.stringify({
+              service: "solicitud",
+              cmd: "SAVED",
+              solicitud: solicitudDb,
+            })
+          ),
+          { persistent: true }
+        );
+
+      }).catch((error=>{
+        console.log("fallo en la actualizacion de tarifa de la solicitud ",error);
+      
+      channel.ack(message); // Eliminar la solicitud de la cola
+        
+    }))
+    }
+
       // Procesar la solicitud aquí
       if (solicitudFrom.cmd == "NEW") {
         var pendingSolicitud = solicitudFrom.solicitud;
