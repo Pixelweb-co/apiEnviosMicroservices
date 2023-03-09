@@ -26,12 +26,11 @@ let channel = null;
 
 // Lista de usuarios conectados
 let connectedUsers = [];
-
-
+const usersListRedis = createClient({ host: 'redis_data' ,port:6379,legacyMode: true  });
 
 
 var id_server_instance = uidgen.generateSync()
-
+//ver mensajes del brocker
 const send_rabbit_socket = async (socket) => {
   try {
     // Conectarse a RabbitMQ
@@ -285,11 +284,23 @@ const send_rabbit_socket = async (socket) => {
   }
 };
 
-
+//actualizar usuarios conectados en redis para compartir con instancias
 const checkUsers = (socket) => {
+  
+  
+  usersListRedis.lrange('userListSocketShare', 0, -1, (err, result) => {
+    if (err) throw err;
+  
+    const array = result.map(json => JSON.parse(json));
+    console.log(array);
+    connectedUsers = array 
+    
+  });
+  
+  //esta registrado el usuario en esta instancia de socket?
   var pickedf = connectedUsers.find(
-    (x) => x.userName == socket.handshake.query.cliente
-  );
+    (x) => x.userName == socket.handshake.query.cliente && x.server_instance === id_server_instance
+     );
 
   //console.log("pkc ", pickedf);
 
@@ -305,9 +316,15 @@ const checkUsers = (socket) => {
         tipo: socket.handshake.query.tipo,
         server_instance:id_server_instance
       });
+
+
     } else {
       console.log("user indefinido ", socket.handshake.query);
     }
+
+
+
+
   } else {
     connectedUsers.forEach(function (item) {
       if (item.userName == pickedf.userName && item.id !== socket.id) {
@@ -317,6 +334,15 @@ const checkUsers = (socket) => {
       }
     });
   }
+
+//enviar a redis
+
+  connectedUsers.forEach(obj => {
+    const json = JSON.stringify(obj);
+    usersListRedis.rpush('userListSocketShare', json);
+  });
+
+
 };
 
 const io = socketIO(server, {
