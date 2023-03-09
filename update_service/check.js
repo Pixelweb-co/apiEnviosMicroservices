@@ -1,6 +1,7 @@
 const { execSync } = require("child_process");
 const { Octokit } = require("@octokit/rest");
 const nodemailer = require("nodemailer");
+require('dotenv').config();
 
 // Creamos un objeto de transporte SMTP
 let transporter = nodemailer.createTransport({
