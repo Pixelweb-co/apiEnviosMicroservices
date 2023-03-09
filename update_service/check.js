@@ -1,20 +1,40 @@
-const { execSync } = require('child_process');
-const { Octokit } = require('@octokit/rest');
+const { execSync } = require("child_process");
+const { Octokit } = require("@octokit/rest");
+const nodemailer = require("nodemailer");
+
+// Creamos un objeto de transporte SMTP
+let transporter = nodemailer.createTransport({
+  host: "mail.pixelweb.com.co",
+  port: 25,
+  secure: false,
+  auth: {
+    user: "admin@pixelweb.com.co",
+    pass: "16287318ed",
+  },
+});
+
+// Definimos el correo electrónico que se enviará
+let mailOptions = {
+  from: "admin@pixelweb.com.co",
+  to: "egbmaster2007@gmail.com",
+  subject: "Actualizacion de backend y deploy",
+  text: "Se actualizo el sistema y de reiniciaron los contendores",
+};
 
 // Crea una instancia de la clase Octokit con tus credenciales de autenticación
 const octokit = new Octokit({
-  auth: 'xxx'
+  auth: "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",
 });
 
 // Define los parámetros para la solicitud de la API
-const owner = 'Pixelweb-co';
-const repo = 'apiEnviosMicroservices';
+const owner = "Pixelweb-co";
+const repo = "apiEnviosMicroservices";
 const perPage = 1;
 
 // Obtiene el último commit del repositorio local
-const localCommit = execSync('git rev-parse HEAD').toString().trim();
+const localCommit = execSync("git rev-parse HEAD").toString().trim();
 
-console.log("Ultimo commit local: ",localCommit)
+console.log("Ultimo commit local: ", localCommit);
 
 // Llama a la función repos.getLatestCommit para obtener el último commit del repositorio en GitHub
 // octokit.repos.getLatestCommit({ owner, repo }).then(async (response) => {
@@ -39,36 +59,43 @@ console.log("Ultimo commit local: ",localCommit)
 //   console.error(`Error al obtener el último commit: ${error}`);
 // });
 
-setInterval(()=>{
-    
-const repo_remote = async ()=>{
-console.log("cheando remoto ")
-    
-    
+const repo_remote = async () => {
+  console.log("cheando remoto ");
 
-const fiveMostRecentCommits = await octokit.request(
-    `GET /repos/{owner}/{repo}/commits`, { owner, repo, per_page: perPage }
-);
+  const fiveMostRecentCommits = await octokit.request(
+    `GET /repos/{owner}/{repo}/commits`,
+    { owner, repo, per_page: perPage }
+  );
 
-//console.log("fiveMostRecentCommits ",fiveMostRecentCommits)
+  //console.log("fiveMostRecentCommits ",fiveMostRecentCommits)
 
-if(fiveMostRecentCommits.data[0].sha !== localCommit){
+  if (fiveMostRecentCommits.data[0].sha !== localCommit) {
+    console.log("Hay cambios");
 
-    console.log("Hay cambios")
-
-    const pullGit = await execSync('git pull').toString().trim();
-    const ReloadContainers = await execSync('sudo docker-compose --f ../docker-compose.yml up -d --build').toString().trim();
+    const pullGit = await execSync("git pull").toString().trim();
+    const ReloadContainers = await execSync(
+      "sudo docker-compose --f ../docker-compose.yml up -d --build"
+    )
+      .toString()
+      .trim();
 
     console.log("Acualizado y reiniciados los servicios de agilenvio ;)");
 
-}else{
-    console.log("sin cambios")
-}
+    // Enviamos el correo electrónico
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Correo electrónico enviado: " + info.response);
+      }
+    });
+  } else {
+    console.log("sin cambios");
+  }
+};
 
-}
+repo_remote();
 
- repo_remote()
-
-},300000)
-
-
+setInterval(() => {
+  repo_remote();
+}, 300000);
