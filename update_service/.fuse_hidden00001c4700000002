@@ -1,33 +1,21 @@
 const { execSync } = require("child_process");
 const { Octokit } = require("@octokit/rest");
 const nodemailer = require("nodemailer");
-require('dotenv').config();
-
-
-
-// Define los parámetros para la solicitud de la API
-const owner = "Pixelweb-co";
-const repo = "apiEnviosMicroservices";
-const perPage = 1;
-
-
-
 
 // Creamos un objeto de transporte SMTP
 let transporter = nodemailer.createTransport({
-
-  host: process.env.MAIL_HOST,
-  port: process.env.MAIL_PORT,
+  host: "mail.pixelweb.com.co",
+  port: 25,
   secure: false,
   auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASSWORD,
+    user: "admin@pixelweb.com.co",
+    pass: "16287318ed",
   },
 });
 
 // Definimos el correo electrónico que se enviará
 let mailOptions = {
-  from: process.env.MAIL_USER,
+  from: "admin@pixelweb.com.co",
   to: "egbmaster2007@gmail.com",
   subject: "Actualizacion de backend y deploy",
   text: "Se actualizo el sistema y de reiniciaron los contendores",
@@ -35,9 +23,13 @@ let mailOptions = {
 
 // Crea una instancia de la clase Octokit con tus credenciales de autenticación
 const octokit = new Octokit({
-
-  auth: process.env.GITHUBTOKEN
+  auth: "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",
 });
+
+// Define los parámetros para la solicitud de la API
+const owner = "Pixelweb-co";
+const repo = "apiEnviosMicroservices";
+const perPage = 1;
 
 // Obtiene el último commit del repositorio local
 const localCommit = execSync("git rev-parse HEAD").toString().trim();
