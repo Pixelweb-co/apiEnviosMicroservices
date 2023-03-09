@@ -5,10 +5,15 @@ const cors = require("cors");
 var methodOverride = require("method-override");
 var bodyParser = require("body-parser");
 const RabbitMQConnection = require("./services/rabbitMq");
+const {createAdapter} = require('@socket.io/redis-adapter');
+const {createClient} = require('redis');
+
+
+const pubClient = createClient({ host: 'redis://redis_data:6379' });
+const subClient = pubClient.duplicate()
 
 const QUEUE_NAME_SOLICITUDES = "solicitudes";
 const QUEUE_NAME_OFERTAS = "ofertas";
-
 
 const app = express();
 
@@ -34,131 +39,201 @@ const send_rabbit_socket = async (socket) => {
 
     console.log("Esperando mensajes en la cola socket...");
 
-    
-
     channel.consume(
       queueName, //escucha canal socket
       (message) => {
-        if(!message.content){
-
-          return false
+        if (!message) {
+          console.log("no llegan mensajes rabbit en socket");
+          return false;
         }
         const solicitud = JSON.parse(message.content.toString());
         console.log(
           `comando recibido en socket ${solicitud.service} cmd ${solicitud.cmd}`
         );
 
-            if (solicitud.service == 'oferta' && solicitud.cmd == "SAVED") {
-            console.log("se guardo oferta desde el servicio")  
-            // io.of("/socket")
-            //   .to("solicitud_"+solicitud.oferta.solicitud)
-            //   .emit("seToffers", {
-            //     offers: [solicitud.oferta],
-            //     lastOferUpdate: null,
-            //   });
+        if (solicitud.service == "oferta" && solicitud.cmd == "SAVED") {
+          console.log("se guardo oferta desde el servicio");
+          // io.of("/socket")
+          //   .to("solicitud_"+solicitud.oferta.solicitud)
+          //   .emit("seToffers", {
+          //     offers: [solicitud.oferta],
+          //     lastOferUpdate: null,
+          //   });
 
-            const QUEUE_NAME = "ofertas";
-            const requestPayloadO = { service: "oferta", cmd: "GETPENDINGS", solicitud:solicitud.oferta.solicitud};
-        
-            if (channel) {
-              channel.sendToQueue(
-                QUEUE_NAME,
-                Buffer.from(JSON.stringify(requestPayloadO)),
-                {persistent:true}
-              );
-        
-              console.log(
-                `>>>>>>>>>> solicitando lista ofertas pendientes para esta solicitud pendiente de el cliente `
-              );
-  
+          if (!solicitud.oferta) {
+            channel.ack(message); // Eliminar la solicitud de la cola
+
+            return false;
+          }
+
+          const QUEUE_NAME = "ofertas";
+          const requestPayloadO = {
+            service: "oferta",
+            cmd: "GETPENDINGS",
+            solicitud: solicitud.oferta.solicitud,
+          };
+
+          if (channel) {
+            channel.sendToQueue(
+              QUEUE_NAME,
+              Buffer.from(JSON.stringify(requestPayloadO)),
+              { persistent: true }
+            );
+
+            console.log(
+              `>>>>>>>>>> solicitando lista ofertas pendientes para esta solicitud pendiente de el cliente `
+            );
+
             // Obtener el objeto socket del usuario correspondiente
             channel.ack(message); // Eliminar la solicitud de la cola
           }
         }
 
-          if (solicitud.service == 'oferta' && solicitud.cmd == "HAVE_PENDINGS_SOLICITUD") {                     
+        if (
+          solicitud.service == "oferta" &&
+          solicitud.cmd == "HAVE_PENDINGS_SOLICITUD"
+        ) {
           //enviar ofertas al cliente si esta conectado
-            var pickedf = connectedUsers.find(
-              (x) => x.userName == solicitud.ofertas[0].contratante
-            );
-            
-  
-            if (pickedf) {
-              console.log("enviando ofertas pendientes a solicitud de cliente ",solicitud);
-           
-  
-              io.of("/socket")
-                .to(pickedf.id)
-                .emit("seToffers", {
-                  offers: solicitud.ofertas,
-                  lastOferUpdate: null,
-                });
-      
-                channel.ack(message); // Eliminar la solicitud de la cola
-      
-      
-          }
-  
-        }
-
-        // Procesar la solicitud aquí
-
-        if (solicitud.service == 'solicitud' && solicitud.cmd == "HAVE_PENDINGS_DRIVERS") {
-          console.log("enviando solicitudes pendientes a contratistas");
-          
-          console.log("salas ", io.of("/socket").adapter.rooms);
-         
-          
-          io.of("/socket")
-            .to("contratistas")
-            .emit("solicitudes_abiertas", solicitud.solicitudes);
-         
-          channel.ack(message); // Eliminar la solicitud de la cola
-           
-        }
-
-        if (solicitud.service == 'solicitud' && solicitud.cmd == "HAVE_PENDING") {
           var pickedf = connectedUsers.find(
-            (x) => x.userName == solicitud.user._id
+            (x) => x.userName == solicitud.ofertas[0].contratante
           );
 
           if (pickedf) {
             console.log(
-              "enviando a cliente socket app react solicitud pendiente "
+              "enviando ofertas pendientes a solicitud de cliente ",
+              solicitud
             );
 
-            io.of("/socket")
-              .to(pickedf.id)
-              .emit("seTsolicitud", { sol: solicitud.solicitud, offers: [] });
-            channel.ack(message); // Eliminar la solicitud de la cola
-    
-    
-            const QUEUE_NAME = "ofertas";
-            const requestPayload = { service: "oferta", cmd: "GETPENDINGS", solicitud:solicitud.solicitud};
-        
-            if (channel) {
-              channel.sendToQueue(
-                QUEUE_NAME,
-                Buffer.from(JSON.stringify(requestPayload)),
-                {persistent:true}
-              );
-        
-              console.log(
-                `>>>>>>>>>> solicitando lista ofertas pendientes para esta solicitud pendiente de el cliente `
-              );
-    
-              }
-    
-          }else{
-            console.log(
-              "no se envia al cliente la solicitud pendiente porque se  ha desconectado. "
-            ); 
+            io.of("/socket").to(pickedf.id).emit("seToffers", {
+              offers: solicitud.ofertas,
+              lastOferUpdate: null,
+            });
           }
+
+          channel.ack(message); // Eliminar la solicitud de la cola
         }
 
-        if (solicitud.service == 'solicitud' && solicitud.cmd == "SAVED") {
-          
-          console.log("antes de errort")
+        // Procesar la solicitud aquí
+
+        if (
+          solicitud.service == "solicitud" &&
+          solicitud.cmd == "ACCEPT_SOLICITUD"
+        ) {
+
+          console.clear()
+          console.log("enviando notificacion de solicitud aceptada");
+
+          io.of("/socket")
+            .to("solicitud_" + solicitud.solicitud._id)
+            .emit("offerAccept", {
+              sol: solicitud.solicitud,
+              offer: solicitud.oferta,
+            });
+
+            
+            
+            //notificando al contratista si no estan en esta sala
+            
+            var pickedf = connectedUsers.find(
+              (x) => x.userName == solicitud.solicitud.id_driver
+            );
+
+            if(pickedf){
+              io.of("/socket")
+                .to(pickedf.id)
+                .emit("offerAccept", {
+                  sol: solicitud.solicitud,
+                  offer: solicitud.oferta,
+                });
+              
+            }
+  
+
+
+
+          const QUEUE_NAME = "solicitudes";
+          console.log("solicitando lista de solicitudes por hacer");
+          const requestPayload = { service: "solicitud", cmd: "GETPENDINGS" };
+
+          if (channel) {
+            channel.sendToQueue(
+              QUEUE_NAME,
+              Buffer.from(JSON.stringify(requestPayload)),
+              { persistent: false }
+            );
+
+            console.log(
+              `>>>>>>>>>> solicitando lista solcitudes pendientes a cotratistas `
+            );
+          }
+
+          channel.ack(message); // Eliminar la solicitud de la cola
+        }
+
+        if (
+          solicitud.service == "solicitud" &&
+          solicitud.cmd == "HAVE_PENDINGS_DRIVERS"
+        ) {
+          console.log("enviando solicitudes pendientes a contratistas");
+
+          console.log("salas ", io.of("/socket").adapter.rooms);
+
+          io.of("/socket")
+            .to("contratistas")
+            .emit("solicitudes_abiertas", solicitud.solicitudes);
+
+          channel.ack(message); // Eliminar la solicitud de la cola
+        }
+
+        if (
+          solicitud.service == "solicitud" &&
+          solicitud.cmd == "HAVE_PENDING"
+        ) {
+          var pickedf = connectedUsers.find(
+            (x) => x.userName == solicitud.user._id
+          );
+
+          if (solicitud.solicitud !== null) {
+            if (pickedf) {
+              console.log(
+                "enviando a cliente socket app react solicitud pendiente "
+              );
+
+              io.of("/socket")
+                .to(pickedf.id)
+                .emit("seTsolicitud", { sol: solicitud.solicitud, offers: [] });
+
+              const QUEUE_NAME = "ofertas";
+              const requestPayload = {
+                service: "oferta",
+                cmd: "GETPENDINGS",
+                solicitud: solicitud.solicitud,
+              };
+
+              if (channel) {
+                channel.sendToQueue(
+                  QUEUE_NAME,
+                  Buffer.from(JSON.stringify(requestPayload)),
+                  { persistent: true }
+                );
+
+                console.log(
+                  `>>>>>>>>>> solicitando lista ofertas pendientes para esta solicitud pendiente de el cliente `
+                );
+              }
+            } else {
+              console.log(
+                "no se envia al cliente la solicitud pendiente porque se  ha desconectado. "
+              );
+            }
+          } else {
+            console.log("no tiene solicitudes pendientes");
+          }
+          channel.ack(message); // Eliminar la solicitud de la cola
+        }
+
+        if (solicitud.service == "solicitud" && solicitud.cmd == "SAVED") {
+          console.log("antes de errort ", solicitud.solicitud);
           var pickedf = connectedUsers.find(
             (x) => x.userName == solicitud.solicitud.id_client
           );
@@ -170,13 +245,27 @@ const send_rabbit_socket = async (socket) => {
               .to(pickedf.id)
               .emit("seTsolicitud", { sol: solicitud.solicitud, offers: [] });
 
-            // Obtener el objeto socket del usuario correspondiente
-            channel.ack(message); // Eliminar la solicitud de la cola
-          }else{
+            const QUEUE_NAME = "solicitudes";
+            console.log("solicitando lista de solicitudes por hacer");
+            const requestPayload = { service: "solicitud", cmd: "GETPENDINGS" };
+
+            if (channel) {
+              channel.sendToQueue(
+                QUEUE_NAME,
+                Buffer.from(JSON.stringify(requestPayload)),
+                { persistent: false }
+              );
+
+              console.log(
+                `>>>>>>>>>> solicitando lista solcitudes pendientes a cotratistas `
+              );
+            }
+          } else {
             console.log(
               "no se envia al cliente la solicitud pendiente porque se  ha desconectado. "
-            ); 
+            );
           }
+          channel.ack(message); // Eliminar la solicitud de la cola
         }
       },
       { noAck: false }
@@ -185,6 +274,7 @@ const send_rabbit_socket = async (socket) => {
     console.error(error);
   }
 };
+
 
 const checkUsers = (socket) => {
   var pickedf = connectedUsers.find(
@@ -208,10 +298,9 @@ const checkUsers = (socket) => {
       console.log("user indefinido ", socket.handshake.query);
     }
   } else {
-   
     connectedUsers.forEach(function (item) {
       if (item.userName == pickedf.userName && item.id !== socket.id) {
-         console.log("Socket de usuario actualizado");
+        console.log("Socket de usuario actualizado "+socket.handshake.query.tipo);
         item.id = socket.id;
       }
     });
@@ -230,6 +319,11 @@ const io = socketIO(server, {
     methods: ["GET", "POST"],
   },
 });
+
+
+
+io.adapter(createAdapter({ pubClient: pubClient, subClient: subClient }));
+
 
 // Middlewares
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -255,20 +349,18 @@ io.of("/socket").on("connection", (socket) => {
       socket.handshake.query.tipo
   );
 
-  checkUsers(socket);
-
   if (socket.handshake.query.tipo == "contratista") {
     socket.join("contratistas");
 
     const QUEUE_NAME = "solicitudes";
-
+    console.log("solicitando lista de solicitudes por hacer");
     const requestPayload = { service: "solicitud", cmd: "GETPENDINGS" };
 
     if (channel) {
       channel.sendToQueue(
         QUEUE_NAME,
         Buffer.from(JSON.stringify(requestPayload)),
-        {persistent:false}
+        { persistent: false }
       );
 
       console.log(
@@ -277,10 +369,16 @@ io.of("/socket").on("connection", (socket) => {
     }
   }
 
+  if (socket.handshake.query.tipo == "cliente") {
+    console.log("ingresando el cliente ala la sala contratantes");
+    socket.join("contratantes");
+  }
+
   socket.on("keep-alive", () => {
     checkUsers(socket);
-    
   });
+
+  checkUsers(socket);
 
   socket.on("joinRequisition", (data) => {
     console.log("ingreso a solicitud ", data.requisitionId);
@@ -300,20 +398,34 @@ io.of("/socket").on("connection", (socket) => {
       socketClient: socket.id,
     };
 
+    console.log(
+      `>>>>>>>>>> solicitando pendientes a usuario ${
+        data.nombres
+      }`);
+   
     if (channel) {
       channel.sendToQueue(
         QUEUE_NAME,
         Buffer.from(JSON.stringify(requestPayload)),
-       {persistent:true}
+        { persistent: true }
       );
 
-      // console.log(
-      //   `>>>>>>>>>> solicitando pendientes a usuario ${
-      //     data.nombres
-      //   }`
-      // );
+      
+    }else{
+      console.log("No hay conexion con el broker de mensajes")
     }
   });
+
+  socket.on("locationDriverSend",(data)=>{
+     console.clear()
+    console.log("Ubicacion driver solicitud_"+data.requisition._id, data.location);
+    io.of("/socket").to("solicitud_" + data.requisition._id).emit(
+      "locationDriverLoad",
+      data.location
+    );
+
+  })
+
 
   //nueva solicitud
   socket.on("crear_solicitud_cliente", async (data, socketID) => {
@@ -329,52 +441,159 @@ io.of("/socket").on("connection", (socket) => {
             cmd: "NEW",
             solicitud: { ...solicitud, fecha: new Date() },
           })
-        ),{persistent:true}
+        ),
+        { persistent: true }
+      );
+
+      console.log(`>>>>>>>>>> Sent nueva solicitud hacia cola solicitudes`);
+    }
+  });
+
+  socket.on("aceptar_solicitud_driver_oferta", (payload) => {
+    const QUEUE_NAME = "solicitudes";
+    if (channel) {
+      channel.sendToQueue(
+        QUEUE_NAME,
+        Buffer.from(
+          JSON.stringify({
+            service: "solicitud",
+            cmd: "ACCEPT",
+            oferta: payload.oferta,
+            solicitud: payload.solicitud,
+          })
+        ),
+        { persistent: true }
+      );
+
+      channel.sendToQueue(
+        "ofertas",
+        Buffer.from(
+          JSON.stringify({
+            service: "ofertas",
+            cmd: "ACCEPT",
+            oferta: payload.oferta,
+            solicitud: payload.solicitud,
+          })
+        ),
+        { persistent: true }
       );
 
       console.log(
-        `>>>>>>>>>> Sent nueva solicitud hacia cola solicitudes`
+        `>>>>>>>>>> Sent nueva solicitud aprobada hacia cola solicitudes`
       );
     }
   });
 
-//nueva oferta
-socket.on("setOffer", function (payload) {
-  //console.clear();
-  console.log("nueva oferta", payload);
+  socket.on("aceptar_solicitud_driver_valor_solicitud", (oferta) => {});
 
-  socket.join("solicitud_" + payload.solicitud);
+  //nueva oferta
+  socket.on("setOffer", function (payload) {
+    //console.clear();
+    console.log("nueva oferta", payload);
 
-  const QUEUE_NAME = "ofertas";
-  const oferta = payload;
+    socket.join("solicitud_" + payload.solicitud);
+
+    const QUEUE_NAME = "ofertas";
+    const oferta = payload;
+
+    if (channel) {
+      channel.sendToQueue(
+        QUEUE_NAME,
+        Buffer.from(
+          JSON.stringify({
+            service: "oferta",
+            cmd: "NEW",
+            oferta: { ...oferta, fecha: new Date() },
+          })
+        ),
+        { persistent: true }
+      );
+
+      console.log(`>>>>>>>>>> Sent nueva oferta hacia cola ofertas `);
+    }
+  });
+
+  socket.on("setTarifaClient", (payload) => {
+    console.clear();
+    console.log("Valor de servicio actualizado", payload);
+    //actualizar solicitud
+
+    const QUEUE_NAME = "solicitudes";
+    const oferta = payload;
+
+    if (channel) {
+      channel.sendToQueue(
+        QUEUE_NAME,
+        Buffer.from(
+          JSON.stringify({
+            service: "solicitud",
+            cmd: "CHANGE_TARIFA",
+            tarifa: payload,
+          })
+        ),
+        { persistent: true }
+      );
+
+      console.log(`>>>>>>>>>> Sent nueva tarifa a solicitudes `);
+    }
+  });
+
+socket.on("terminar_solicitud",(solicitud)=>{
+
+  io.of("/socket").to("solicitud_" + solicitud._id).emit(
+    "terminateService",
+    { finishBy: "user", sol: { ...solicitud, status: "Cerrada" } }
+  );
+
+ var rooms = io.of("/socket").adapter.rooms
+
+  // Verificar si la sala "miSala" existe
+if (rooms.hasOwnProperty("solicitud_" + solicitud._id)) {
+  // Eliminar la sala "miSala"
+  io.sockets.adapter.del("solicitud_" + solicitud._id);
+  console.log("sala eliminada")
+}
+
+  const QUEUE_NAME = "solicitudes";
+ 
 
   if (channel) {
     channel.sendToQueue(
       QUEUE_NAME,
       Buffer.from(
         JSON.stringify({
-          service: "oferta",
-          cmd: "NEW",
-          oferta: { ...oferta, fecha: new Date() },
+          service: "solicitud",
+          cmd: "FINISH",
+          solicitud: solicitud,
         })
-      ),{persistent:true}
+      ),
+      { persistent: true }
     );
 
-    console.log(
-      `>>>>>>>>>> Sent nueva oferta hacia cola ofertas `
-    );
+    console.log(`>>>>>>>>>> Sent nueva tarifa a solicitudes `);
+  
   }
-})
 
+
+})
+  
 
 
   // Manejar desconexiones del cliente
   socket.on("disconnect", () => {
     console.log(`Cliente desconectado: ${socket.id}`);
 
+    connectedUsers = connectedUsers.filter((x) => x.id !== socket.id);
+    // Obtener las salas a las que está unido el usuario
+    const rooms = Object.keys(io.of("/socket").adapter.rooms);
 
-    connectedUsers = connectedUsers.filter(x=>x.id !== socket.id);
-
+    // Recorrer las salas y sacar al usuario de cada una
+    rooms.forEach((room) => {
+      if (room !== socket.id) {
+        socket.leave(room);
+        console.log(`Usuario ${socket.id} ha salido de la sala ${room}`);
+      }
+    });
   });
 });
 
