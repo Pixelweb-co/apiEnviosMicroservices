@@ -1,5 +1,7 @@
 {
   "dependencies": {
-    "dotenv": "^16.0.3"
+    "@octokit/rest": "^19.0.7",
+    "dotenv": "^16.0.3",
+    "nodemailer": "^6.9.1"
   }
 }
