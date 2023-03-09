@@ -3,7 +3,7 @@ const { Octokit } = require('@octokit/rest');
 
 // Crea una instancia de la clase Octokit con tus credenciales de autenticación
 const octokit = new Octokit({
-  auth: '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'
+  auth: 'xxx'
 });
 
 // Define los parámetros para la solicitud de la API

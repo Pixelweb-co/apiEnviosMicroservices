@@ -3,7 +3,7 @@ const { Docker } = require('node-docker-api');
 const docker = new Docker();
 
 const octokit = new Octokit({
-  auth: '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',
+  auth: 'xxx',
 });
 
 const repository = 'Pixelweb-co/apiEnviosMicroservices';
