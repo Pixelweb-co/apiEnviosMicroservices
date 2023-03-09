@@ -3,7 +3,7 @@ const { Octokit } = require('@octokit/rest');
 
 // Crea una instancia de la clase Octokit con tus credenciales de autenticación
 const octokit = new Octokit({
-  auth: 'xxx'
+  auth: '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'
 });
 
 // Define los parámetros para la solicitud de la API
@@ -39,36 +39,40 @@ console.log("Ultimo commit local: ",localCommit)
 //   console.error(`Error al obtener el último commit: ${error}`);
 // });
 
+const repo_remote = async ()=>{
+    console.log("cheando remoto ")
+        
+        
+    
+    const fiveMostRecentCommits = await octokit.request(
+        `GET /repos/{owner}/{repo}/commits`, { owner, repo, per_page: perPage }
+    );
+    
+    //console.log("fiveMostRecentCommits ",fiveMostRecentCommits)
+    
+    if(fiveMostRecentCommits.data[0].sha !== localCommit){
+    
+        console.log("Hay cambios")
+    
+        const pullGit = await execSync('git pull').toString().trim();
+        const ReloadContainers = await execSync('sudo docker-compose --f ../docker-compose.yml up -d --build').toString().trim();
+    
+        console.log("Acualizado y reiniciados los servicios de agilenvio ;)");
+    
+    }else{
+        console.log("sin cambios")
+    }
+    
+    }
+
+ repo_remote()
+    
+
 setInterval(()=>{
     
-const repo_remote = async ()=>{
-console.log("cheando remoto ")
-    
-    
-
-const fiveMostRecentCommits = await octokit.request(
-    `GET /repos/{owner}/{repo}/commits`, { owner, repo, per_page: perPage }
-);
-
-//console.log("fiveMostRecentCommits ",fiveMostRecentCommits)
-
-if(fiveMostRecentCommits.data[0].sha !== localCommit){
-
-    console.log("Hay cambios")
-
-    const pullGit = await execSync('git pull').toString().trim();
-    const ReloadContainers = await execSync('sudo docker-compose --f ../docker-compose.yml up -d --build').toString().trim();
-
-    console.log("Acualizado y reiniciados los servicios de agilenvio ;)");
-
-}else{
-    console.log("sin cambios")
-}
-
-}
 
  repo_remote()
 
-},300000)
+},30000)
 
 
