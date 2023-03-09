@@ -6,3 +6,4 @@
 /ofertas_api/node_modules
 /update_service/node_modules
 /rabbitmq_data
+/update_service/.env
