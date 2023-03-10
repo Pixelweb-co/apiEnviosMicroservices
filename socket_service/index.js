@@ -9,6 +9,11 @@ const redisAdapter = require('@socket.io/redis-adapter');
 const {createClient} = require('redis');
 const UIDGenerator = require('uid-generator');
 
+require('dotenv').config();
+/* pulls the Redis URL from .env */
+
+
+require('dotenv').config();
 const uidgen = new UIDGenerator(); 
 
 
@@ -26,11 +31,12 @@ let channel = null;
 
 // Lista de usuarios conectados
 let connectedUsers = [];
-const usersListRedis = createClient({ host: 'redis_data' ,port:6379,legacyMode: true  });
+
+
 
 
 var id_server_instance = uidgen.generateSync()
-//ver mensajes del brocker
+
 const send_rabbit_socket = async (socket) => {
   try {
     // Conectarse a RabbitMQ
@@ -50,6 +56,11 @@ const send_rabbit_socket = async (socket) => {
           console.log("no llegan mensajes rabbit en socket");
           return false;
         }
+
+
+        loadUsers()
+
+        
         const solicitud = JSON.parse(message.content.toString());
         console.log(
           `comando recibido en socket ${solicitud.service} cmd ${solicitud.cmd}`
@@ -65,9 +76,10 @@ const send_rabbit_socket = async (socket) => {
           //   });
 
           if (!solicitud.oferta) {
-            channel.ack(message); // Eliminar la solicitud de la cola
+            
 
-            return false;
+           return false;
+          
           }
 
           const QUEUE_NAME = "ofertas";
@@ -98,9 +110,7 @@ const send_rabbit_socket = async (socket) => {
           solicitud.cmd == "HAVE_PENDINGS_SOLICITUD"
         ) {
           //enviar ofertas al cliente si esta conectado
-          var pickedf = connectedUsers.find(
-            (x) => x.userName == solicitud.ofertas[0].contratante
-          );
+          
 
           if (pickedf) {
             console.log(
@@ -114,7 +124,10 @@ const send_rabbit_socket = async (socket) => {
             });
           }
 
+            if ((pickedf && pickedf.server_instance === id_server_instance) || !pickedf) {
           channel.ack(message); // Eliminar la solicitud de la cola
+          }  
+       
         }
 
         // Procesar la solicitud aquí
@@ -153,8 +166,6 @@ const send_rabbit_socket = async (socket) => {
             }
   
 
-
-
           const QUEUE_NAME = "solicitudes";
           console.log("solicitando lista de solicitudes por hacer");
           const requestPayload = { service: "solicitud", cmd: "GETPENDINGS" };
@@ -171,7 +182,11 @@ const send_rabbit_socket = async (socket) => {
             );
           }
 
-          channel.ack(message); // Eliminar la solicitud de la cola
+            if ((pickedf && pickedf.server_instance === id_server_instance) || !pickedf) {
+            channel.ack(message); // Eliminar la solicitud de la cola
+            }  
+
+          
         }
 
         if (
@@ -238,7 +253,12 @@ const send_rabbit_socket = async (socket) => {
           } else {
             console.log("no tiene solicitudes pendientes");
           }
-          channel.ack(message); // Eliminar la solicitud de la cola
+
+            if ((pickedf && pickedf.server_instance === id_server_instance) || !pickedf) {
+            channel.ack(message); // Eliminar la solicitud de la cola
+            }  
+
+
         }
 
         if (solicitud.service == "solicitud" && solicitud.cmd == "SAVED") {
@@ -274,7 +294,12 @@ const send_rabbit_socket = async (socket) => {
               "no se envia al cliente la solicitud pendiente porque se  ha desconectado. "
             );
           }
-          channel.ack(message); // Eliminar la solicitud de la cola
+
+            if ((pickedf && pickedf.server_instance === id_server_instance) || !pickedf) {
+            channel.ack(message); // Eliminar la solicitud de la cola
+            }  
+
+
         }
       },
       { noAck: false }
@@ -284,23 +309,60 @@ const send_rabbit_socket = async (socket) => {
   }
 };
 
-//actualizar usuarios conectados en redis para compartir con instancias
-const checkUsers = (socket) => {
+const setRddisUsers = async(usersUpdate)=>{
+
+  const url = process.env.REDIS_SERVER
+  const pubClient = createClient({ url: url });
+
+  await pubClient.connect()
   
+  //const subClient = pubClient.duplicate()
   
-  usersListRedis.lrange('userListSocketShare', 0, -1, (err, result) => {
-    if (err) throw err;
+  pubClient.on('error', (err) => console.log('Redis Client Error', err));
   
-    const array = result.map(json => JSON.parse(json));
-    console.log(array);
-    connectedUsers = array 
+
+  await pubClient.set('userListSocketShare',JSON.stringify(usersUpdate));
+
+}
+
+const loadUsers = async (socket) => {
+  const url = process.env.REDIS_SERVER
+  const pubClient = createClient({ url: url });
+
+  await pubClient.connect()
+  
+  //const subClient = pubClient.duplicate()
+  
+  pubClient.on('error', (err) => console.log('Redis Client Error', err));
+  
+  const usersList = await pubClient.get('userListSocketShare');
+
+
+console.log("Vl from rds in socket ",usersList)
+
+connectedUsers = JSON.parse(usersList);
+
+
+
+}
+
+loadUsers()
+
+const checkUsers = async (socket) => {
+  const url = process.env.REDIS_SERVER
+  const pubClient = createClient({ url: url });
+
+  await pubClient.connect()
+  
+  //const subClient = pubClient.duplicate()
+  
+  pubClient.on('error', (err) => console.log('Redis Client Error', err));
+  
     
-  });
   
-  //esta registrado el usuario en esta instancia de socket?
   var pickedf = connectedUsers.find(
-    (x) => x.userName == socket.handshake.query.cliente && x.server_instance === id_server_instance
-     );
+    (x) => x.userName == socket.handshake.query.cliente
+  );
 
   //console.log("pkc ", pickedf);
 
@@ -308,6 +370,7 @@ const checkUsers = (socket) => {
     if (socket.handshake.query.cliente) {
       console.log("registrando nuevo cliente en server ",id_server_instance);
 
+    
       connectedUsers.push({
         id: socket.id,
         userName: socket.handshake.query.cliente,
@@ -316,15 +379,9 @@ const checkUsers = (socket) => {
         tipo: socket.handshake.query.tipo,
         server_instance:id_server_instance
       });
-
-
     } else {
       console.log("user indefinido ", socket.handshake.query);
     }
-
-
-
-
   } else {
     connectedUsers.forEach(function (item) {
       if (item.userName == pickedf.userName && item.id !== socket.id) {
@@ -335,12 +392,10 @@ const checkUsers = (socket) => {
     });
   }
 
-//enviar a redis
 
-  connectedUsers.forEach(obj => {
-    const json = JSON.stringify(obj);
-    usersListRedis.rpush('userListSocketShare', json);
-  });
+
+  // serUsers
+await pubClient.set('userListSocketShare',JSON.stringify(connectedUsers));
 
 
 };
@@ -359,14 +414,11 @@ const io = socketIO(server, {
 });
 
 
-const pubClient = createClient({ host: 'redis_data' ,port:6379,legacyMode: true  });
-console.log("pub client ",pubClient)
-const subClient = pubClient.duplicate()
 
 
-io.adapter(redisAdapter(pubClient, subClient, {
-  publishOnSpecificResponseChannel: true
-}));
+// io.adapter(redisAdapter(pubClient, subClient, {
+//   publishOnSpecificResponseChannel: true
+// }));
 
 
 // Middlewares
@@ -629,6 +681,7 @@ if (rooms.hasOwnProperty("solicitud_" + solicitud._id)) {
 
     connectedUsers = connectedUsers.filter((x) => x.id !== socket.id);
     // Obtener las salas a las que está unido el usuario
+    setRddisUsers(connectedUsers);
     const rooms = Object.keys(io.of("/socket").adapter.rooms);
 
     // Recorrer las salas y sacar al usuario de cada una
