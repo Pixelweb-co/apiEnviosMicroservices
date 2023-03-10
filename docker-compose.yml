@@ -21,7 +21,7 @@ services:
   
   #account services database
   db_accounts:
-    image: mongo:latest
+    image: mongo:4.4
     volumes:
       - mongodb_accounts:/data/db
     ports:
@@ -53,7 +53,7 @@ services:
   
   #solicitud services db
   db_solicitudes:
-    image: mongo:latest
+    image: mongo:4.4
     volumes:
       - mongodb_solicitudes:/data/db
     ports:
@@ -86,7 +86,7 @@ services:
   
   #ofertas services db
   db_ofertas:
-    image: mongo:latest
+    image: mongo:4.4
     volumes:
       - mongodb_ofertas:/data/db
     ports:
@@ -127,7 +127,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     volumes:
-      - ./rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq_data:/var/lib/rabbitmq/data
+    
     networks:
       - red_micros
     environment:
@@ -138,6 +139,7 @@ services:
         interval: 30s
         timeout: 10s
         retries: 5
+    
   #socket services 
   socket_service:
     image: socket_service:latest
