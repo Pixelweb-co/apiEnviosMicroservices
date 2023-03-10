@@ -185,20 +185,42 @@ services:
   #     timeout: 30s
   #     retries: 3
 
-  redis_data:
-    image: redis
-    restart: always
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "8001:8001"
+    volumes:
+      - redisinsight-data:/db
+    restart: unless-stopped
     networks:
       - red_micros
+    environment:
+      - REDIS_CONNECTION_HOST=redis
+      - REDIS_CONNECTION_PORT=6379
+
+  redis_data:
+    image: redis:latest
+    #container_name: redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - red_micros
 #volumenes persistentes
 volumes:
   mongodb_accounts:
+    driver: local
   mongodb_solicitudes:
+    driver: local
   mongodb_ofertas:
+    driver: local
   rabbitmq_data:
     driver: local
+  redisinsight-data:
+  redis_data:
 
 
 #redes
