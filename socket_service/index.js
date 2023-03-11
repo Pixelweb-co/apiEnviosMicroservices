@@ -211,7 +211,6 @@ const send_rabbit_socket = async (socket) => {
 
           console.log("------------------>>>>> pendiente solicitud usuario ",solicitud)
 
-          console.log("usuarios registrados ",connectedUsers)  
 
           var pickedf = connectedUsers.find(
             (x) => x.userName == solicitud.user._id
