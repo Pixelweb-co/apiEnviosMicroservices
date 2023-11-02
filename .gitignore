@@ -7,3 +7,8 @@
 /update_service/node_modules
 /rabbitmq_data
 /update_service/.env
+/mongodb_accounts
+/mongodb_solicitudes
+/mongodb_ofertas
+/redisinsight-data
+/redis_data
