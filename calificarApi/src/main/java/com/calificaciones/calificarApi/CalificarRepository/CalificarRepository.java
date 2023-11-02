@@ -1,4 +1,11 @@
 package com.calificaciones.calificarApi.CalificarRepository;
 
-public class CalificarRepository {
+import org.springframework.data.mongodb.repository.MongoRepository;
+import com.calificaciones.calificarApi.models.calificacion;
+
+import java.util.List;
+
+public interface CalificarRepository extends MongoRepository<calificacion,String> {
+    List<calificacion> findByIdUsuario(String idUsuario);
+
 }

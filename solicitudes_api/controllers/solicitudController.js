@@ -6,7 +6,7 @@ const Solicitud = require('../models/solicitudModel');
 
 const getSolicitudes = async (req, res) => {
   try {
-    const solicitudes = await Solicitud.find();
+    const solicitudes = await Solicitud.find({estado:"PENDING"});
     res.status(200).json(solicitudes);
   } catch (error) {
     res.status(500).json({ message: error.message });

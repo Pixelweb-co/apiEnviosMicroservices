@@ -15,7 +15,7 @@ CMD ['apt', 'install', 'iputils-ping']
 CMD ['apt', 'install', 'net-tools']
 
 CMD ['npm', 'install','-g npm']
-
+ 
 # Instala curl
 RUN apk --no-cache add curl
 

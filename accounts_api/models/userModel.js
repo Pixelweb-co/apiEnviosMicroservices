@@ -9,16 +9,18 @@ var Usuariosh = mongoose.Schema({
     email: String,
     telefono: String,
     direccion: String,
+    departamento:String,
     ciudad: String,
     estado: String,
-    saldo: Number,
-    placa_vehiculo: String,
-    modelo_vehiculo: String,
+    //saldo: Number,
+    //placa_vehiculo: String,
+    //modelo_vehiculo: String,
     cedula: Number,
-    marca_vehiculo: String,
+    //marca_vehiculo: String,
     tipo: String,
     act_code: String,
     avatar: String,
+    refreshToken: String
   });
 
 

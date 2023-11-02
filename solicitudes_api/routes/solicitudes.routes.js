@@ -29,4 +29,8 @@ router.post('/', async (req, res) => {
   res.status(200).json({ message: 'Solicitud sent successfully' });
 });
 
+
+router.post('/lastlocation',solicitudController.lastlocation);
+
+
 module.exports = router;

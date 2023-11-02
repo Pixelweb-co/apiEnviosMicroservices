@@ -57,7 +57,7 @@ const send_rabbit_requisitions = async (connection) => {
         channel.ack(message); // Eliminar la solicitud de la cola
         console.log(
           `Enviando solicitudes pendientes a los conductores : ${JSON.stringify(
-            solicitudes_pendiente
+            solicitudes_pendiente.length
           )}`
         );
         channel.sendToQueue(
@@ -88,6 +88,12 @@ const send_rabbit_requisitions = async (connection) => {
           });
 
           channel.ack(message); // Eliminar la solicitud de la cola
+          
+          if(!solicitud_pendiente){
+            console.log("no tiene solicitudes pendientes ")
+            return false
+          }
+
           console.log(
             `Solicitud pendiente en servicio : ${JSON.stringify(
               solicitud_pendiente

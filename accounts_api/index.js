@@ -2,7 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const amqp = require('amqplib');
 const authRoutes = require('./routes/auth.routes');
-
+const path = require("path");
+const cors = require('cors');
 const app = express();
 
 // Conectar a la base de datos
@@ -43,6 +44,16 @@ send_rabbit_accounts()
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+app.use(cors());
+// Ruta para servir archivos estáticos
+app.use("/public", express.static(path.join(__dirname, "public")));
+
+// Ruta para manejar solicitudes de imágenes
+app.get("/accounts/foto/:imageName", (req, res) => {
+  const imageName = req.params.imageName;
+  const imagePath = path.join(__dirname, "public", imageName);
+  res.sendFile(imagePath);
+});
 
 // Configurar las rutas
 app.use('/accounts', authRoutes);

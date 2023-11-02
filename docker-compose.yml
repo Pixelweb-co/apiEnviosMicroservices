@@ -18,12 +18,14 @@ services:
       - red_micros
       - red_data_layer
     restart: on-failure
+    volumes:
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\uploads:/app/uploads
   
   #account services database
   db_accounts:
     image: mongo:4.4
     volumes:
-      - mongodb_accounts:/data/db
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\mongodb_accounts:/data/db
     ports:
       - '27018:27017'
     networks:
@@ -55,9 +57,9 @@ services:
   db_solicitudes:
     image: mongo:4.4
     volumes:
-      - mongodb_solicitudes:/data/db
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\mongodb_solicitudes:/data/db
     ports:
-      - '27017:27017'
+      - '27015:27017'
     networks:
       - red_data_layer
     restart: on-failure  
@@ -88,7 +90,7 @@ services:
   db_ofertas:
     image: mongo:4.4
     volumes:
-      - mongodb_ofertas:/data/db
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\mongodb_ofertas:/data/db
     ports:
       - '27019:27017'
     networks:
@@ -114,21 +116,28 @@ services:
     ports:
       - "4488:4488"
     volumes:
-      - ./gateway_api/nginx.conf:/etc/nginx/nginx.conf
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\gateway_api\nginx.conf:/etc/nginx/nginx.conf
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\uploads:/usr/share/nginx/html/
     networks:
       - red_gateway
     restart: on-failure
+    depends_on:
+      - socket_service
+      - accounts_service
+      - ofertas_service
+      - contratistas_service
+      - solicitudes_service
     
   
-  #message brokuer rabbitmq
+  #message broker rabbitmq
   rabbitmq:
     image: rabbitmq:3-management
     ports:
       - "5672:5672"
       - "15672:15672"
     volumes:
-      - ./rabbitmq_data:/var/lib/rabbitmq/data
-    
+      # - ./rabbitmq_data:/var/lib/rabbitmq/data
+       - C:\Users\Edwin\Desktop\apiEnviosMicroservices\rabbitmq_data:/var/lib/rabbitmq
     networks:
       - red_micros
     environment:
@@ -139,6 +148,23 @@ services:
         interval: 30s
         timeout: 10s
         retries: 5
+    
+
+  #upload service
+  upload_service:
+    image: upload_service:1.0
+    build:
+      context: ./upload_api
+      dockerfile: Dockerfile
+    ports:
+      - '6000:6000'
+    networks:
+      - red_micros
+      - red_gateway
+    restart: on-failure
+    volumes:
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\uploads:/app/uploads/
+    
     
   #socket services 
   socket_service:
@@ -171,8 +197,68 @@ services:
       - redis_data
     restart: on-failure
     
-  
+   
+  #calificacion services 
+  calificacionService:
+    image: calificar_service:1.0
+    build:
+      context: ./calificar_service
+      dockerfile: Dockerfile
+    ports:
+      - '8080:3000'
+    networks:
+      - red_micros
+      - red_gateway
+      - red_data_layer
+    depends_on:
+      - rabbitmq
+      - redis_data
+      - db_calificaciones
+    restart: on-failure
 
+  
+  #calificaciones services db
+  db_calificaciones:
+    image: mongo:4.4
+    volumes:
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\mongodb_calificaciones:/data/db
+    ports:
+      - '27028:27017'
+    networks:
+      - red_data_layer
+    restart: on-failure  
+
+   
+  #contratistas services 
+  contratistas_service:
+    image: contratistas_service:1.0
+    build:
+      context: ./contratistas_service
+      dockerfile: Dockerfile
+    ports:
+      - '8086:3000'
+    networks:
+      - red_micros
+      - red_gateway
+      - red_data_layer
+    depends_on:
+      - rabbitmq
+      - redis_data
+      - db_contratistas
+    restart: on-failure
+
+  
+  #contratistas services db
+  db_contratistas:
+    image: mongo:4.4
+    volumes:
+      - C:\Users\Edwin\Desktop\apiEnviosMicroservices\mongodb_contratistas:/data/db
+    ports:
+      - '27017:27017'
+    networks:
+      - red_data_layer
+    restart: on-failure
+  
   # #broker message monitor cluster
   # cluster_monitor:
   #   build:
@@ -211,9 +297,29 @@ services:
     restart: unless-stopped
     networks:
       - red_micros
+
+#jenkins
+  jenkins:
+    image: jenkins/jenkins:lts
+    ports:
+      - "8090:8080"
+      - "50000:50000"
+    environment:
+      - JENKINS_USER=admin
+      - JENKINS_PASS=admin123
+    volumes:
+      - "jenkins_home:/var/jenkins_home"
+
+
 #volumenes persistentes
 volumes:
+  uploads:
+    driver: local
+  jenkins_home:
+    
   mongodb_accounts:
+    driver: local
+  mongodb_contratistas:
     driver: local
   mongodb_solicitudes:
     driver: local

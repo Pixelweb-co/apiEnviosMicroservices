@@ -53,7 +53,7 @@ const send_rabbit_socket = async (socket) => {
       queueName, //escucha canal socket
       (message) => {
         if (!message) {
-          console.log("no llegan mensajes rabbit en socket");
+          console.error("no llegan mensajes rabbit en socket");
           return false;
         }
 
@@ -62,7 +62,7 @@ const send_rabbit_socket = async (socket) => {
 
         
         const solicitud = JSON.parse(message.content.toString());
-        console.log(
+        console.info(
           `comando recibido en socket ${solicitud.service} cmd ${solicitud.cmd}`
         );
 
@@ -190,8 +190,8 @@ const send_rabbit_socket = async (socket) => {
         }
 
         if (
-          solicitud.service == "solicitud" &&
-          solicitud.cmd == "HAVE_PENDINGS_DRIVERS"
+          solicitud.service === "solicitud" &&
+          solicitud.cmd === "HAVE_PENDINGS_DRIVERS"
         ) {
           console.log("enviando solicitudes pendientes a contratistas");
 
@@ -209,8 +209,15 @@ const send_rabbit_socket = async (socket) => {
           solicitud.cmd == "HAVE_PENDING"
         ) {
 
-          console.log("------------------>>>>> pendiente solicitud usuario ",solicitud)
+          console.log("------------------>>>>> pendiente solicitud usuario ",solicitud._id)
 
+          if(!solicitud.solicitud){
+
+            //no tiene solicitud pendiente
+            channel.ack(message); // Eliminar la solicitud de la cola
+            
+            return false
+          }
 
           var pickedf = connectedUsers.find(
             (x) => x.userName == solicitud.user._id
@@ -278,6 +285,7 @@ const send_rabbit_socket = async (socket) => {
             const requestPayload = { service: "solicitud", cmd: "GETPENDINGS" };
 
             if (channel) {
+              console.log("enviar lista de solicitudes habilitada")
               channel.sendToQueue(
                 QUEUE_NAME,
                 Buffer.from(JSON.stringify(requestPayload)),
@@ -287,6 +295,8 @@ const send_rabbit_socket = async (socket) => {
               console.log(
                 `>>>>>>>>>> solicitando lista solcitudes pendientes a cotratistas `
               );
+
+              
             }
           } else {
             console.log(
@@ -334,13 +344,16 @@ const loadUsers = async (socket) => {
   
   pubClient.on('error', (err) => console.log('Redis Client Error', err));
   
-  const usersList = await pubClient.get('userListSocketShare');
+const usersList = await pubClient.get('userListSocketShare');
 
 
 console.log("Vl from rds in socket ",usersList)
 
-connectedUsers = JSON.parse(usersList);
-
+if(usersList){
+  connectedUsers = JSON.parse(usersList);
+}else{
+  connectedUsers = [];
+}
 
 
 }

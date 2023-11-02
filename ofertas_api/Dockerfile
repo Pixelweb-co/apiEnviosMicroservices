@@ -28,8 +28,8 @@ EXPOSE 3000
 
 # Esperar a que el servicio de MongoDB esté disponible
 
-RUN chmod +x ./wait-for-it.sh
+#RUN chmod +x ./wait-for-it.sh
 
-CMD ["sh", "./wait-for-it.sh", "rabbitmq", "5672", "node", "index.js"]
+#CMD ["sh", "./wait-for-it.sh", "rabbitmq", "5672", "node", "index.js"]
 
-#CMD ["node", "index.js"]
+CMD ["node", "index.js"]
